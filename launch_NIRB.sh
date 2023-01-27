@@ -17,7 +17,7 @@ coarsetimesqrt="0.1 0.1414 0.22 0.32" #sqrth
 for nev in 10 #a priori number of modes
 do
     values=1 #first fine size mesh
-    for Param in 1
+    for Param in 1 ################# value of parameter in [1:0.5:9]
     do
 	
 	tau=$(echo $finetime | cut -d ' ' -f $values) # time step dtF
@@ -26,9 +26,13 @@ do
 	## for sqrth ##
 	taucoarse=$(echo $coarsetimesqrt | cut -d ' ' -f $values) #time step dtG
 	
-	python3	NirbGreedyOfflineRectif.py $nev $tau sqrth $taucoarse $Param #launch offline+online parts
-	python3	NirbGreedyOnlineRectif.py $nev $tau sqrth $taucoarse $Param #launch offline+online parts
+	python3	NirbGreedyOfflineRectifGP.py $nev $tau sqrth $taucoarse $Param #launch offline+online parts ## Gaussian process regression
+	python3	NirbGreedyOnlineRectifGP.py $nev $tau sqrth $taucoarse $Param #launch offline+online parts
 
+       	#python3	NirbGreedyOfflineRectif.py $nev $tau sqrth $taucoarse $Param #launch offline+online parts ## Deterministic Rectification
+	#python3	NirbGreedyOnlineRectif.py $nev $tau sqrth $taucoarse $Param #launch offline+online parts
+
+	
 	FileList=$(ls NIRB_approximation*) 
 
 	nev=$(echo $FileList|cut -d ' ' -f 1|cut -d '_' -f 4|cut -d '.' -f 1)
