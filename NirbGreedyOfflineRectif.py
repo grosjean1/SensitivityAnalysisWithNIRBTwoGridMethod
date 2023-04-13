@@ -183,7 +183,7 @@ l2ScalarProducMatrix = FT.ComputeL2ScalarProducMatrix( mesh, nbeOfComponentsPrim
 #h1ScalarProducMatrix = FT.ComputeH10ScalarProductMatrix(mesh, nbeOfComponentsPrimal)
 
 ##### ALGO (full) GREEDY
-reducedOrderBasisPhi,nev2,_=GD.Greedy(snapshots,TF,l2ScalarProducMatrix,h1ScalarProducMatrix=None,NumberOfModes=nev,Tol=1e-30)
+reducedOrderBasisPhi,nev2,_=GD.Greedy(snapshots,TF,l2ScalarProducMatrix,NumberOfModes=nev)
 
 
 

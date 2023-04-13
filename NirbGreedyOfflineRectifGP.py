@@ -190,10 +190,8 @@ l2ScalarProducMatrix = FT.ComputeL2ScalarProducMatrix( FineMesh, nbeOfComponents
 #h1ScalarProducMatrix = FT.ComputeH10ScalarProductMatrix(FineMesh, nbeOfComponentsPrimal)
 
 ##### ALGO GREEDY
-reducedOrderBasisU,nev1,indices1=GD.Greedy(snapshotsU,TF,l2ScalarProducMatrix,h1ScalarProducMatrix=None,NumberOfModes=nev)
-#reducedOrderBasisPhi,nev1,indices2=GD.Greedy(snapshots,TF,l2ScalarProducMatrix,h1ScalarProducMatrix=None,NumberOfModes=nev)
-#nev1=3
-reducedOrderBasisPhi,nev2=GD.GreedyNew(snapshots,TF,l2ScalarProducMatrix,indices1,h1ScalarProducMatrix=None,NumberOfModes=nev1) #if suitable parameters for the second RB 
+reducedOrderBasisU,nev1,indices1=GD.Greedy(snapshotsU,TF,l2ScalarProducMatrix, nev)
+reducedOrderBasisPhi,nev2=GD.GreedyNew(snapshots,TF,l2ScalarProducMatrix,indices1,NumberOfModes=nev1) #if suitable parameters for the second RB 
 
 print("1:",indices1)
 #print("2:",indices2)
