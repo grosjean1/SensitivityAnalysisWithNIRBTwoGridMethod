@@ -1,0 +1,127 @@
+// Elise Grosjean
+// 01/2022
+
+include "getARGV.idp"
+
+// NIRB approximation for errors computation H10 et L2 (with an exact solution)
+
+// Parameters
+real tau =getARGV("-tau", 0.01);
+real tauref =0.0025;//tau;
+
+cout<<"tau in FF++" <<tau<<endl;
+
+int[int] Order=[1];
+int nn=getARGV("-nnref", 140);//1400); //560
+int nnref=560;
+int nev=5; //getARGV("-nev", 1);//number of modes 
+
+cout <<" size mesh in FF++ "<<nn<<endl;
+mesh Th = square(nn, nn);
+mesh Thref=square(nnref,nnref);
+fespace Vhref(Thref, P1);
+
+Vhref uref;
+
+// NIRB PARAMETERS
+real mu=getARGV("-Param", 1.);
+cout<<"Param in FF++"<<mu<<endl;
+
+fespace Vh(Th, P1);
+fespace Wh(Th, P2);
+cout<<Vh.ndof<<endl;
+ Vh u, v, oldU;
+ Wh Phiu,oldPhiu;
+Vh f1, f0;
+fespace Ph(Th, P0);
+Ph h = hTriangle; // mesh sizes for each triangle
+
+oldU=0;
+cout << "mesh size = " << h[].max << ", time step = " << tau << endl;
+
+real t0 = 0;
+real t0bis =0;//0.9999;
+real T = 1.0001;
+real t=t0;
+
+real locH1L2=0;
+
+
+real locL2=0;
+real locH1=0;
+real locL2det=0;
+real locH1det=0;
+
+
+
+real[int][int] data;
+mesh unused=vtkload("NIRB_approximation_"+0+"_"+nev+".vtk",fields=data);
+Vh app;
+app[]=data[0];
+plot(app,wait=1,value=1,fill=1);
+plot(oldPhiu,wait=1,value=1,cmm="phi",fill=1);
+
+real locL2o=0;//sqrt(int2d(Th)((app-oldPhiu)^2)/int2d(Thref)(oldPhiu^2));
+cout<<"***** ERR relative L2: "<<locL2o<<endl;
+real locH1o;
+locH1o=0;//sqrt(int2d(Th,qforder=10)((dx(oldPhiu)-dx(app))^2+(dy(oldPhiu)-dy(app))^2)/int2d(Th,qforder=10)(dx(oldPhiu)^2+dy(oldPhiu)^2));
+
+ int n=1;
+for (t=t0+tau; t <= 1.0001; t=t+tau){
+
+	 real[int][int] data;
+	 string NIRBfile="NIRB_approximation_"+n+"_"+nev+".vtk";
+	 cout << NIRBfile <<endl;
+	 mesh unused=vtkload("NIRB_approximation_"+n+"_"+nev+".vtk",fields=data);
+	
+	 app[]=data[0];
+	 
+	 if (t>=t0bis){ //solution entre t0=1 et t1=2
+     	 cout<<"T : "<<t<<endl;
+         
+	 real[int][int] data2;
+	 {
+	 int k=int(n*tau/tauref);
+	 cout<< "FineSnapshotsPhiRef/0.0025/1/SnapshotPhih_"+k+".txt"<<endl;
+	 
+	 ifstream uexfile("/home/grosjean/CODESPARABOLICCORRECTION/FineSnapshotsPhiRef/0.0025/1/SnapshotPhih_"+k+".txt");
+	 uexfile >> uref[];
+	 }
+	 
+	 // Update
+
+	 // Error
+	 [Phiu]=[uref];
+
+
+	 real locL2o=sqrt(int2d(Th)((app-Phiu)^2));///
+	 cout<<"***** ERR relative L2: "<<locL2o<<endl;
+	 real locL2odet=sqrt(int2d(Th)(Phiu^2));
+	 real locH1o;
+
+	 locH1o=sqrt(int2d(Th,qforder=10)((dx(Phiu)-dx(app))^2+(dy(Phiu)-dy(app))^2));///
+	 real locH1odet=sqrt(int2d(Th,qforder=10)(dx(Phiu)^2+dy(Phiu)^2));
+ 	 //locH1o/=locH1odet;
+	 //locL2o/=locL2odet;
+	 
+	 cout<<"*****  ERR relative H1: " <<locH1o<<endl;
+	 locL2=max(locL2,locL2o);
+	 locH1=max(locH1,locH1o);
+	 locL2det=max(locL2det,locL2odet);
+	 locH1det=max(locH1det,locH1odet);
+	 
+	 }
+	 n++;
+}
+   
+    cout << endl;
+    cout<< "nev: "<<nev << " nnref "<<nnref <<"tau "<< tau<<endl;
+    cout<<" rel L2 " << locL2/locL2det<<endl;
+    cout<<" rel H1 "<<locH1/locH1det<<endl;
+
+ofstream out1("error.txt",append); //file to store calculations
+    out1<< "nev: "<<nev << " nnref "<<nnref <<"tau "<< tau ;
+    out1<<" rel L2 " << locL2/locL2det;
+    out1<<" rel H1 "<<locH1/locH1det;
+  
+    

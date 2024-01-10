@@ -1,0 +1,311 @@
+//Elise Grosjean
+//Adjoint method 
+//FreeFem++ script.edp 
+//example with heat equation for adjoint sensitivity analysis
+
+load "lapack"
+load "ff-Ipopt"
+load "iovtk"
+int[int] Order=[1];
+
+include "getARGV.idp"
+load "medit"
+
+macro Div(u,v)(dx(u)+dy(v))//
+macro Grad(u)[dx(u),dy(u)]//
+
+real theta=getARGV("-theta",1.);
+real dt =getARGV("-tau",0.01);
+real dtF;
+cout<<"dt in FF++" <<dt<<endl;
+real dtref=0.0025;
+
+int i,j,k;
+real tgv=1.0e+30;
+
+int nn=getARGV("-nnref", 140);//560);
+
+// Mesh
+mesh Th = square(nn,nn);//,[x,y);//,[55*x,55*y]);//for measures
+
+
+// NIRB PARAMETER
+real mu=getARGV("-param", 1.);
+cout<<"Param in FF++: mu: "<<mu<<endl;
+
+mesh Thref =square(560,560);//280,280);
+//square(560,560);//for true measures
+
+
+fespace Ph(Th, P0);
+Ph hfin=hTriangle;
+cout<<"maillage  taille: "<<hfin[].max<<endl;
+
+// Fespace
+fespace Vhref(Thref, P1);
+fespace Vh(Th, P1);
+
+real t = 0;
+real t0= 0;
+real Tmax=1.;
+int TF= (Tmax-t0)/dt+1;
+
+cout<<"Number of fine time steps :"<<TF<<endl;
+
+/*
+varf MassMatRef(uref,vref)=int2d(Thref)( uref*vref ) + on(1,2,3,4,uref=0); //mass matrix
+varf RigiditeRef(uref,vref)=int2d(Thref)(Grad(uref)'*Grad(vref));//+on(1,2,3,4,u=g); //rigidity 
+
+varf MassMatFin(u,v)=int2d(Th)( u*v ) + on(1,2,3,4,u=0); //mass matrix
+varf RigiditeFin(u,v)=int2d(Th)(Grad(u)'*Grad(v));//+on(1,2,3,4,u=g); //rigidity 
+*/
+
+bool saveSnapshots=false;
+int ParameterNumber;
+
+int nF, mG;
+int TimemG,TimenF,mG1,mG2;
+
+//////////////////////////////////////////////////////////////////////
+///*************************** INITIALIZATION *********************///
+//////////////////////////////////////////////////////////////////////
+
+
+ func real f (real t){
+     return 10*x^2*(x-1)^2*y^2*(y-1)^2 - 10*(t+1)*((12*x^2-12*x+2)*(y^2*(y-1)^2)+(12*y^2-12*y+2)*(x^2*(x-1)^2));
+ }
+
+
+    func real ff2 (real t){
+     return  - 10*(t+1)*((12*x^2-12*x+2)*(y^2*(y-1)^2)+(12*y^2-12*y+2)*(x^2*(x-1)^2));
+}
+
+     
+NewMacro defProblem(Thx,fine,Snapshots,saveSnapshots)
+{
+     fespace Xh(Thx, P1);
+     dtF=dt;
+     
+     if (fine!=1){
+     cout<<"tref !" <<t<<endl;
+	dtF=dtref;
+     }
+	
+     Xh f0,f1;
+     //initial condition
+
+     Xh u,v; 
+     Xh uini;
+     f0=ff2(0);
+     problem condiniU(uini,v)=int2d(Thx)(mu*(dx(uini)*dx(v) +dy(uini)*dy(v))) - int2d(Thx)(f0*v)+ on(1,2,3,4,uini=0);
+     condiniU;
+     
+     int TT=(Tmax-t0)/dtF+1;
+     cout<<"TT in FF++:" <<TT<<endl;
+     if (saveSnapshots ==true){
+     Snapshots[0]=uini; //filling FineSnapshots
+     }
+     
+     // Problem 
+      problem aTau (u, v)
+     = int2d(Thx)(
+           u*v
+         + theta*mu*dtF*(dx(u)*dx(v) + dy(u)*dy(v) )
+     )
+     - int2d(Thx)(
+           uini*v
+         - (1-theta)*mu*dtF*(dx(uini)*dx(v) + dy(uini)*dy(v))
+     )
+     - int2d(Thx)(
+           dtF*(theta*f1 + (1-theta)*f0)*v
+     )
+      + on(1,2,3,4,u=0)
+     ;
+     
+     for(int i=1;i<TT; ++i){
+       	       t=i*dt;
+	       cout<<"TT in FF++:" <<TT<<endl;
+	       cout<<"i in FF++:" <<i<<endl;
+	       cout<<"t in FF++:" <<dtF<<endl;
+	       // Update
+	        f0 = f(t-dtF);
+         	f1 = f(t);
+
+	    	aTau;
+
+		uini[]=u[];//update
+		
+		if (saveSnapshots ==true){
+		    
+	    	    if (t>=t0-0.0001){
+		   Snapshots[i][]=u[]; //filling FineSnapshots
+	  	   }
+	     }
+	}
+	
+
+}EndMacro
+
+
+
+/**********************************************/
+
+Vh InitSolU;
+Vh[int] usol(TF);
+defProblem(Th,1,usol,true)
+/*for(int i=0;i<TF;i++){
+	savevtk("test"+i+".vtu",Th,usol[i],order=Order);
+	}*/
+
+/************************************************************************************/
+///////////////////**** Exact solution (coarse and fine (for errors)) **********//////
+/************************************************************************************/
+int TFref=(Tmax-t0)/dtref+1;
+Vhref[int] ue(TFref); //reference solution (measures)
+
+//defProblem(Thref,0,ue,true);
+
+
+for(int n=0;n<TF;n++)
+ {
+	int k=int(n*dt/dtref);//indice fin
+	 
+
+	 ifstream uexfile("/home/grosjean/CODESPARABOLICCORRECTION/FineSnapshotsRef/"+dtref+"/"+mu+"/Snapshoth_"+k+".txt");
+	 //ofstream uexfile("/home/grosjean/CODESPARABOLICCORRECTION/FineSnapshotsRef/"+dtref+"/"+mu+"/Snapshoth_"+k+".txt");
+	 //uexfile << ue[k][];
+	 uexfile >> ue[k][];
+	
+}
+
+
+Vh[int] ueint (TF);
+[ueint[0]]=[ue[0]];
+
+for(int i=1;i<TF;i++){
+	 int k=int(i*dt/dtref);
+	//ueint[i][]=usol[i][];
+	/*for(int j=0;j<ue.n;j++){
+		real r =(-1)^j*1e-1*randreal1();
+		ue[k][][j]+=r;
+	}*/
+	[ueint[i]]=[ue[k]];
+	
+//	savevtk("testbis"+i+".vtu",Th,ueint[i],order=Order);
+//	savevtk("test"+i+".vtu",Th,usol[i],order=Order);
+	
+	
+}
+
+////////////////////////////////////////////////////////////////////////////
+///*************************** Sensitivity with NIRB *******************////
+////////////////////////////////////////////////////////////////////////////
+
+//-----------------------------------------------------------
+// Sensitivity problem : 1- adjoint pb 
+//-----------------------------------------------------------
+
+
+NewMacro defAdjointProblem(Thx,fine,Snap,SensFunctions,saveSnapshots)
+{
+
+     fespace Xh(Thx, P1);
+      Xh lambdau,lambdau0,lambdauini,u,u0,u1,Phiu;
+     SensFunctions[TF-1][]=0;//backward iteration -> init =0
+     lambdauini[]=0;//initial condition
+     real errTot=0;
+
+     Xh uerk,uerk0;//error
+
+      problem  HeatAdjointSensitivity(lambdau,Phiu) =
+
+       	int2d(Th)(- lambdau*Phiu  )
+      + int2d(Th)( lambdauini*Phiu ) //unew (backward...)
+
+      - int2d(Th)(mu*theta*(dx(lambdau)*dx(Phiu)+dy(lambdau)*dy(Phiu)))
+      //+ int1d(Th)(mu*theta*([dx(lambdau),dy(lambdau)]'*[N.x,N.y]*Phiu));
+      - int2d(Th)(theta*uerk*Phiu)
+      
+      - int2d(Th)(mu*(1-theta)*(dx(lambdauini)*dx(Phiu)+dy(lambdauini)*dy(Phiu)))
+      //+ int1d(Th)(mu*(1-theta)*([dx(lambdauini),dy(lambdauini)]'*[N.x,N.y]*Phiu));
+      - int2d(Th)((1-theta)*uerk0*Phiu)
+      + on(1,2,3,4,lambdau=0)
+     ;
+     
+     	for(int n= TF-2;n>=0;n--){ //tf/dt-1 values
+	     cout<<n+1<<endl;
+	     uerk[]=Snap[n][];
+	     uerk0[]=Snap[n+1][];
+	     int k0=0;
+
+	     uerk[]-=ueint[n][]; //error
+	     uerk0[]-=ueint[n+1][]; //error
+	     
+	     HeatAdjointSensitivity;
+
+	     if(saveSnapshots==true){
+			SensFunctions[n][]=lambdau[];
+	      }
+			
+	errTot+=int2d(Th)((square(uerk)));
+	lambdauini[]=lambdau[];//update
+	}
+
+	cout<<"error(in adjoint): "<<errTot<<endl;
+		
+
+}EndMacro
+
+
+
+
+//** sensitivites for the fine and coarse snapshots **//
+
+Vh[int] usollambda(TF);
+defAdjointProblem(Th,1,usol,usollambda,true) //dt lambda= -duF*lambda -duG
+for(int i=0;i<TF;i++){
+/*   {
+	   ofstream fileSnap("SnapshotPhih_"+i+".txt");
+     	   fileSnap << usollambda[i][];
+	   }
+*/	   
+	savevtk("SnapshotPhih_"+i+".vtu",Th,usollambda[i],dataname="Velocity",order=Order);
+}
+   
+
+
+//-----------------------------------------------------------
+// Sensitivity problem : 2-objective sensitivities
+//-----------------------------------------------------------
+
+
+
+
+real dpS;//Objective derivatives
+
+NewMacro defSensitivityProblem(Thx,ParameterNumber,Snap,SensFunctions,dpS)
+{
+
+	fespace Xh(Thx, P1);
+	Xh u;
+    	//-lambda *  (dpA u - dpB)
+    	dpS=0;
+	
+	for(k=0;k<TF-1;k++){
+
+		u[]=Snap[k][];
+		Xh utx=u;
+		Xh ulambda=SensFunctions[k];	
+		dpS+=int2d(Thx)(dx(ulambda)*dx(utx)+dy(ulambda)*dy(ulambda)) - int1d(Thx)([dx(utx),dy(utx)]'*[N.x,N.y]*ulambda);
+	
+	}
+	
+		
+	
+		cout<<"dpS : "<<dpS<<" "<<endl;
+		
+}EndMacro
+
+
+
+defSensitivityProblem(Th,0,usol,usollambda,dpS)

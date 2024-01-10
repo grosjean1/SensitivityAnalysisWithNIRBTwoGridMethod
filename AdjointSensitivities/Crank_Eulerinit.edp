@@ -1,0 +1,110 @@
+
+include "getARGV.idp" 
+
+func Pk=P1;
+// Parameters
+real tau =getARGV("-tau", 1.);
+cout<<"tau in FF++" <<tau<<endl;
+load "iovtk"
+
+int[int] Order=[1];
+ // Mesh 140 
+ int nnref=getARGV("-nnref", 30);
+ int nn =nnref;
+
+int nev=getARGV("-nev", 1);//number of modes 
+
+cout <<" size mesh in FF++"<<nn<<endl;
+
+
+mesh Th = square(nn,nn);
+
+
+// Theta param
+real theta=getARGV("-theta",0.5); //theta=1;//Euler 0.5// CN
+
+// NIRB PARAMETER
+real mu=getARGV("-Param", 1.);
+cout<<"Param in FF++"<<mu<<endl;
+
+fespace Vh(Th, Pk);
+cout<<Vh.ndof<<endl;
+ Vh u, v, oldU, Phiu,oldPhiu;
+Vh f1, f0;
+fespace Ph(Th, P0);
+Ph h = hTriangle; // mesh sizes for each triangle
+
+//Function
+ func real f (real t){
+     return 10*x^2*(x-1)^2*y^2*(y-1)^2 - 10*(t+1)*((12*x^2-12*x+2)*(y^2*(y-1)^2)+(12*y^2-12*y+2)*(x^2*(x-1)^2));
+ }
+
+u=0;
+oldU=0;
+oldPhiu=0;
+cout << "mesh size = " << h[].max << ", time step = " << tau << endl;
+
+
+ // Problem 
+ problem aTau (u, v)
+     = int2d(Th)(
+           u*v
+         + theta*mu*tau*(dx(u)*dx(v) + dy(u)*dy(v) )
+     )
+     - int2d(Th)(
+           oldU*v
+         - (1-theta)*mu*tau*(dx(oldU)*dx(v) + dy(oldU)*dy(v))
+     )
+     - int2d(Th)(
+           tau*(theta*f1 + (1-theta)*f0)*v
+     )
+      +on(1,2,3,4,u=0)
+     ;
+
+     f0=ff2(0);
+
+     problem condiniU(oldU,v)=int2d(Th)(mu*(dx(oldU)*dx(v) +dy(oldU)*dy(v))) - int2d(Th)(f0*v)+ on(1,2,3,4,oldU=0);
+     condiniU;
+     
+     cout << "theta" << ":"<<theta<<endl;
+     
+   //  savevtk("Snapshoth_"+0+".vtu",Th,oldU,dataname="Velocity",order=Order);
+   //  savevtk("SnapshotPhih_"+0+".vtu",Th,oldPhiu,dataname="Velocity",order=Order);
+    // {
+     
+     {
+     ofstream fileSnap("Snapshoth_0.txt");
+     fileSnap<< oldU[];
+     }
+     int n=0;
+    
+      for (t=t0+tau; t <= T; t=t+tau){
+     		
+     	 cout<<"T : "<<t;
+	 
+         // Update
+	 f0 = f(t-tau);
+         f1 = f(t);
+	  
+         aTau; //solve problem
+	 plot(u,wait=1,cmm="u");
+	 oldU = u;
+	 
+         //save
+	 if (t>=t0bis){ //solution entre t0=1 et t1=2	 
+	
+	 real mn=n+1;
+	   //savevtk("Snapshoth_"+mn+".vtu",Th,u,dataname="Velocity",order=Order);
+	   //savevtk("SnapshotPhih_"+mn+".vtu",Th,Phiu,dataname="Velocity",order=Order);
+	   {
+	   ofstream fileSnap("Snapshoth_"+mn+".txt");
+     	   fileSnap << u[];
+	   }
+	   n++;
+	 }
+}
+   
+    cout << endl;
+    cout<< "nev: "<<nev << " nnref "<<nnref <<"tau "<< tau<<endl;
+
+        
