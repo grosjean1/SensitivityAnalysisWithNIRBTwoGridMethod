@@ -52,13 +52,11 @@ int TF= (Tmax-t0)/dt+1;
 
 cout<<"Number of fine time steps :"<<TF<<endl;
 
-/*
 varf MassMatRef(uref,vref)=int2d(Thref)( uref*vref ) + on(1,2,3,4,uref=0); //mass matrix
 varf RigiditeRef(uref,vref)=int2d(Thref)(Grad(uref)'*Grad(vref));//+on(1,2,3,4,u=g); //rigidity 
 
 varf MassMatFin(u,v)=int2d(Th)( u*v ) + on(1,2,3,4,u=0); //mass matrix
 varf RigiditeFin(u,v)=int2d(Th)(Grad(u)'*Grad(v));//+on(1,2,3,4,u=g); //rigidity 
-*/
 
 bool saveSnapshots=false;
 int ParameterNumber;
@@ -165,6 +163,17 @@ Vhref[int] ue(TFref); //reference solution (measures)
 
 //defProblem(Thref,0,ue,true);
 
+/*for(int n=0;n<TFref;n++)
+ {
+
+	 ifstream uexfile("/home/grosjean/CODESPARABOLICCORRECTION/FineSnapshotsRef/"+dtref+"/"+mu+"/Snapshoth_"+n+".txt");
+
+	 uexfile >> ue[n][];
+	 
+	//savevtk("testbisbisbis"+n+".vtu",Th,ue[n],order=Order);
+	 //ue[n][]=usol[n][];
+	 
+}*/
 
 for(int n=0;n<TF;n++)
  {
@@ -174,28 +183,36 @@ for(int n=0;n<TF;n++)
 	 ifstream uexfile("/home/grosjean/CODESPARABOLICCORRECTION/FineSnapshotsRef/"+dtref+"/"+mu+"/Snapshoth_"+k+".txt");
 	 //ofstream uexfile("/home/grosjean/CODESPARABOLICCORRECTION/FineSnapshotsRef/"+dtref+"/"+mu+"/Snapshoth_"+k+".txt");
 	 //uexfile << ue[k][];
+
 	 uexfile >> ue[k][];
-	
+	 //savevtk("test"+k+".vtu",Th,ue[k],order=Order);
+	 //ue[n][]=usol[n][];
+	 
 }
 
 
 Vh[int] ueint (TF);
-[ueint[0]]=[ue[0]];
 
-for(int i=1;i<TF;i++){
+for(int i=0;i<TF;i++){
 	 int k=int(i*dt/dtref);
 	//ueint[i][]=usol[i][];
-	/*for(int j=0;j<ue.n;j++){
-		real r =(-1)^j*1e-1*randreal1();
+	for(int j=0;j<ue[k].n;j++){
+		//real r =(-1)^j*5e-1*randreal1();
+		real r1=randreal1();
+		real r2=randreal1();
+		real r=0.1*sqrt(-2*log(r1))*cos(2*pi*r2);
+		
 		ue[k][][j]+=r;
-	}*/
+	}
 	[ueint[i]]=[ue[k]];
+	//savevtk("testbis"+k+".vtu",Th,ueint[i],order=Order);
 	
-//	savevtk("testbis"+i+".vtu",Th,ueint[i],order=Order);
-//	savevtk("test"+i+".vtu",Th,usol[i],order=Order);
+
 	
 	
 }
+
+
 
 ////////////////////////////////////////////////////////////////////////////
 ///*************************** Sensitivity with NIRB *******************////
@@ -309,3 +326,7 @@ NewMacro defSensitivityProblem(Thx,ParameterNumber,Snap,SensFunctions,dpS)
 
 
 defSensitivityProblem(Th,0,usol,usollambda,dpS)
+
+//savevtk("testCbis"+i+".vtu",Th,usollambda[5],order=Order);
+//savevtk("testCbisbisbis"+i+".vtu",Th,usollambda[5],order=Order);
+	
